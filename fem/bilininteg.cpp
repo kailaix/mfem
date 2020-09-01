@@ -1,7 +1,3 @@
-// vim: ts=3 sw=3 sts=3
-
-#include <iostream>
-
 // Copyright (c) 2010-2020, Lawrence Livermore National Security, LLC. Produced
 // at the Lawrence Livermore National Laboratory. All Rights reserved. See files
 // LICENSE and NOTICE for details. LLNL-CODE-806117.
@@ -2181,7 +2177,7 @@ void VectorDiffusionIntegrator::AssembleElementMatrix(
 
    // If vdim is not set, set it to the space dimension;
    vdim = (vdim <= 0) ? sdim : vdim;
-   const bool square{dim == sdim};
+   const bool square = (dim == sdim);
 
    if (VQ)
    {
@@ -2222,7 +2218,7 @@ void VectorDiffusionIntegrator::AssembleElementMatrix(
       el.CalcDShape(ip, dshape);
 
       Trans.SetIntPoint(&ip);
-      double w{Trans.Weight()};
+      double w = Trans.Weight();
       w = ip.weight / (square ? w : w*w*w);
       // AdjugateJacobian = / adj(J),         if J is square
       //                    \ adj(J^t.J).J^t, otherwise
@@ -2231,7 +2227,7 @@ void VectorDiffusionIntegrator::AssembleElementMatrix(
       if (VQ)
       {
          VQ->Eval(vcoeff, Trans, ip);
-         for (int k{0}; k < vdim; ++k)
+         for (int k = 0; k < vdim; ++k)
          {
             Mult_a_AAt(w*vcoeff(k), dshapedxt, pelmat);
             elmat.AddMatrix(pelmat, dof*k, dof*k);
@@ -2240,18 +2236,20 @@ void VectorDiffusionIntegrator::AssembleElementMatrix(
       else if (MQ)
       {
          MQ->Eval(mcoeff, Trans, ip);
-         for (int i{0}; i < vdim; ++i)
-            for (int j{0}; j < vdim; ++j)
+         for (int i = 0; i < vdim; ++i)
+         {
+            for (int j = 0; j < vdim; ++j)
             {
                Mult_a_AAt(w*mcoeff(i,j), dshapedxt, pelmat);
                elmat.AddMatrix(pelmat, dof*i, dof*j);
             }
+         }
       }
       else
       {
          if (Q) { w *= Q->Eval(Trans, ip); }
          Mult_a_AAt(w, dshapedxt, pelmat);
-         for (int k{0}; k < vdim; ++k)
+         for (int k = 0; k < vdim; ++k)
          {
             elmat.AddMatrix(pelmat, dof*k, dof*k);
          }
@@ -2265,15 +2263,30 @@ void VectorDiffusionIntegrator::AssembleElementVector(
    const FiniteElement &el, ElementTransformation &Tr,
    const Vector &elfun, Vector &elvect)
 {
-   int dim = el.GetDim(); // assuming vector_dim == reference_dim
-   int dof = el.GetDof();
+   const int dim = el.GetDim();
+   const int dof = el.GetDof();
+   const int sdim = Tr.GetSpaceDim();
 
-   Jinv.SetSize(dim);
+   // If vdim is not set, set it to the space dimension;
+   vdim = (vdim <= 0) ? sdim : vdim;
+   const bool square = (dim == sdim);
+
+   if (VQ)
+   {
+      vcoeff.SetSize(vdim);
+   }
+   else if (MQ)
+   {
+      mcoeff.SetSize(vdim);
+   }
+
    dshape.SetSize(dof, dim);
    pelmat.SetSize(dim);
-   gshape.SetSize(dim);
 
    elvect.SetSize(dim*dof);
+   // NOTE: DenseMatrix is in column-major order.
+   // This is consistend with vectors ordered byNODES.
+   // in the resulting DenseMatrix, each column correspnds to a particular vdim.
    DenseMatrix mat_in(elfun.GetData(), dof, dim);
    DenseMatrix mat_out(elvect.GetData(), dof, dim);
 
@@ -2287,9 +2300,6 @@ void VectorDiffusionIntegrator::AssembleElementVector(
            &IntRules.Get(el.GetGeomType(), order);
    }
 
-   // If vdim is not set, set it to the space dimension;
-   vdim = (vdim <= 0) ? Tr.GetSpaceDim() : vdim;
-
    elvect = 0.0;
    for (int i = 0; i < ir->GetNPoints(); i++)
    {
@@ -2297,33 +2307,47 @@ void VectorDiffusionIntegrator::AssembleElementVector(
       el.CalcDShape(ip, dshape);
 
       Tr.SetIntPoint(&ip);
-      CalcAdjugate(Tr.Jacobian(), Jinv);
-      double w{ip.weight / Tr.Weight()};
+      double w = Tr.Weight();
+      w = ip.weight / (square ? w : w*w*w);
 
       if (VQ)
       {
-         mfem_error("VectorDiffusionIntegrator::AssembleElementVector \n"
-                    "   is not implemented for VectorCoefficient.");
+         VQ->Eval(vcoeff, Tr, ip);
+         for (int k = 0; k < vdim; ++k)
+         {
+            Mult_a_AAt(w*vcoeff(k), dshapedxt, pelmat);
+            const Vector vec_in(mat_in.GetColumn(k), dof);
+            Vector vec_out(mat_out.GetColumn(k), dof);
+            pelmat.AddMult(vec_in, vec_out);
+         }
       }
       else if (MQ)
       {
-         mfem_error("VectorDiffusionIntegrator::AssembleElementVector \n"
-                    "   is not implemented for MatrixCoefficient.");
+         MQ->Eval(mcoeff, Tr, ip);
+         for (int i = 0; i < vdim; ++i)
+         {
+            Vector vec_out(mat_out.GetColumn(i), dof);
+            for (int j = 0; j < vdim; ++j)
+            {
+               Mult_a_AAt(w*mcoeff(i,j), dshapedxt, pelmat);
+               const Vector vec_in(mat_in.GetColumn(j), dof);
+               pelmat.Mult(vec_in, vec_out);
+            }
+         }
       }
       else
       {
          if (Q) { w *= Q->Eval(Tr, ip); }
+         Mult_a_AAt(w, dshapedxt, pelmat);
+         for (int k = 0; k < vdim; ++k)
+         {
+            const Vector vec_in(mat_in.GetColumn(k), dof);
+            Vector vec_out(mat_out.GetColumn(k), dof);
+            pelmat.AddMult(vec_in, vec_out);
+         }
       }
-
-      MultAAt(Jinv, gshape);
-      gshape *= w;
-
-      MultAtB(mat_in, dshape, pelmat);
-      MultABt(pelmat, gshape, Jinv);
-      AddMultABt(dshape, Jinv, mat_out);
    }
 }
-
 
 void ElasticityIntegrator::AssembleElementMatrix(
    const FiniteElement &el, ElementTransformation &Trans, DenseMatrix &elmat)
