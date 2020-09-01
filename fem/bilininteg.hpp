@@ -2522,8 +2522,8 @@ public:
     for vector FE spaces. Where e_i is the unit vector in the i-th direction.
     The resulting local element matrix is square with dimension
     <tt> vdim * dof </tt> where \c vdim is the vector dimension space and \c dof
-    is the local degrees of freedom. The integrator is not aware of the true 
-    vector dimension and must use the \c VectorCoefficient, 
+    is the local degrees of freedom. The integrator is not aware of the true
+    vector dimension and must use the \c VectorCoefficient,
     \c MatrixCoefficient, or a caller-specified value to determine the vector
     space. For a scalar coefficient, the caller may manually specify the vector
     dimension or the vector dimension is assumed to be the spatial dimension
