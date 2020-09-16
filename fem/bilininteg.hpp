@@ -2284,19 +2284,53 @@ public:
 class DerivativeIntegrator : public BilinearFormIntegrator
 {
 protected:
-   Coefficient* Q;
+   Coefficient* Q = NULL;
 
 private:
-   int xi;
+   const int xi;
    DenseMatrix dshape, dshapedxt, invdfdx;
    Vector shape, dshapedxi;
 
 public:
-   DerivativeIntegrator(Coefficient &q, int i) : Q(&q), xi(i) { }
+   DerivativeIntegrator(int i) : xi{i} { }
+   DerivativeIntegrator(Coefficient &q, int i) : Q{&q}, xi{i} { }
+
    virtual void AssembleElementMatrix(const FiniteElement &el,
                                       ElementTransformation &Trans,
                                       DenseMatrix &elmat)
    { AssembleElementMatrix2(el,el,Trans,elmat); }
+
+   virtual void AssembleElementMatrix2(const FiniteElement &trial_fe,
+                                       const FiniteElement &test_fe,
+                                       ElementTransformation &Trans,
+                                       DenseMatrix &elmat);
+};
+
+/// Class for integrating (Q D_i(u), D_j(v)); u and v are scalars
+class DerivativeDerivativeIntegrator : public BilinearFormIntegrator
+{
+protected:
+   Coefficient* Q = NULL;
+
+private:
+   const int xi;
+   const int xj;
+   DenseMatrix invdfdx;
+   DenseMatrix dshape_trial, dshaped_trial_xt;
+   DenseMatrix dshape_test, dshaped_test_xt;
+   Vector dshaped_trial_xi, dshaped_test_xi;
+
+public:
+   DerivativeDerivativeIntegrator(int i) : xi{i}, xj{i} { }
+   DerivativeDerivativeIntegrator(int i, int j) : xi{i}, xj{j} { }
+   DerivativeDerivativeIntegrator(Coefficient &q, int i) : Q{&q}, xi{i}, xj{i} { }
+   DerivativeDerivativeIntegrator(Coefficient &q, int i, int j) : Q{&q}, xi{i}, xj{j} { }
+
+   virtual void AssembleElementMatrix(const FiniteElement &el,
+                                      ElementTransformation &Trans,
+                                      DenseMatrix &elmat)
+   { AssembleElementMatrix2(el,el,Trans,elmat); }
+
    virtual void AssembleElementMatrix2(const FiniteElement &trial_fe,
                                        const FiniteElement &test_fe,
                                        ElementTransformation &Trans,

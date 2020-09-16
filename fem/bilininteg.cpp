@@ -1454,19 +1454,16 @@ void DerivativeIntegrator::AssembleElementMatrix2 (
    ElementTransformation &Trans,
    DenseMatrix &elmat)
 {
-   int dim = trial_fe.GetDim();
-   int trial_nd = trial_fe.GetDof();
-   int test_nd = test_fe.GetDof();
+   const int dim = trial_fe.GetDim();
+   const int trial_nd = trial_fe.GetDof();
+   const int test_nd = test_fe.GetDof();
 
-   int i, l;
-   double det;
-
-   elmat.SetSize (test_nd,trial_nd);
-   dshape.SetSize (trial_nd,dim);
+   elmat.SetSize(test_nd,trial_nd);
+   dshape.SetSize(trial_nd,dim);
    dshapedxt.SetSize(trial_nd,dim);
    dshapedxi.SetSize(trial_nd);
    invdfdx.SetSize(dim);
-   shape.SetSize (test_nd);
+   shape.SetSize(test_nd);
 
    const IntegrationRule *ir = IntRule;
    if (ir == NULL)
@@ -1492,26 +1489,92 @@ void DerivativeIntegrator::AssembleElementMatrix2 (
    }
 
    elmat = 0.0;
-   for (i = 0; i < ir->GetNPoints(); i++)
+   for (int i = 0; i < ir->GetNPoints(); i++)
    {
       const IntegrationPoint &ip = ir->IntPoint(i);
 
-      trial_fe.CalcDShape(ip, dshape);
-
       Trans.SetIntPoint (&ip);
-      CalcInverse (Trans.Jacobian(), invdfdx);
-      det = Trans.Weight();
-      Mult (dshape, invdfdx, dshapedxt);
+      CalcInverse(Trans.Jacobian(), invdfdx);
+      const double det = Trans.Weight();
+
+      trial_fe.CalcDShape(ip, dshape);
+      Mult(dshape, invdfdx, dshapedxt);
+      dshapedxt.GetColumn(xi, dshapedxi);
 
       test_fe.CalcShape(ip, shape);
 
-      for (l = 0; l < trial_nd; l++)
+      if (Q) shape *= Q->Eval(Trans, ip);
+      shape *= det * ip.weight;
+
+      AddMultVWt(shape, dshapedxi, elmat);
+   }
+}
+
+void DerivativeDerivativeIntegrator::AssembleElementMatrix2 (
+   const FiniteElement &trial_fe,
+   const FiniteElement &test_fe,
+   ElementTransformation &Trans,
+   DenseMatrix &elmat)
+{
+   const int dim = trial_fe.GetDim();
+   const int trial_nd = trial_fe.GetDof();
+   const int test_nd = test_fe.GetDof();
+
+   elmat.SetSize(test_nd, trial_nd);
+   invdfdx.SetSize(dim);
+
+   dshape_trial.SetSize(trial_nd, dim);
+   dshaped_trial_xt.SetSize(trial_nd, dim);
+   dshaped_trial_xi.SetSize(trial_nd);
+
+   dshape_test.SetSize(test_nd, dim);
+   dshaped_test_xt.SetSize(test_nd, dim);
+   dshaped_test_xi.SetSize(test_nd);
+
+   const IntegrationRule *ir = IntRule;
+   if (ir == NULL)
+   {
+      int order;
+      if (trial_fe.Space() == FunctionSpace::Pk)
       {
-         dshapedxi(l) = dshapedxt(l,xi);
+         order = trial_fe.GetOrder() + test_fe.GetOrder() - 1;
+      }
+      else
+      {
+         order = trial_fe.GetOrder() + test_fe.GetOrder() + dim;
       }
 
-      shape *= Q->Eval(Trans,ip) * det * ip.weight;
-      AddMultVWt (shape, dshapedxi, elmat);
+      if (trial_fe.Space() == FunctionSpace::rQk)
+      {
+         ir = &RefinedIntRules.Get(trial_fe.GetGeomType(), order);
+      }
+      else
+      {
+         ir = &IntRules.Get(trial_fe.GetGeomType(), order);
+      }
+   }
+
+   elmat = 0.0;
+   for (int i = 0; i < ir->GetNPoints(); i++)
+   {
+      const IntegrationPoint &ip = ir->IntPoint(i);
+
+      Trans.SetIntPoint (&ip);
+      CalcInverse (Trans.Jacobian(), invdfdx);
+      const double det = Trans.Weight();
+
+      trial_fe.CalcDShape(ip, dshape_trial);
+      Mult(dshape_trial, invdfdx, dshaped_trial_xt);
+      dshaped_trial_xt.GetColumn(xi, dshaped_trial_xi);
+
+      test_fe.CalcDShape(ip, dshape_test);
+      Mult(dshape_test, invdfdx, dshaped_test_xt);
+      dshaped_test_xt.GetColumn(xj, dshaped_test_xi);
+
+      if (Q) dshaped_test_xi *= Q->Eval(Trans, ip);
+      dshaped_test_xi *= det * ip.weight;
+
+      AddMultVWt(dshaped_test_xi, dshaped_trial_xi, elmat);
    }
 }
 
