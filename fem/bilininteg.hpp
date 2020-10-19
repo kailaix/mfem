@@ -2556,9 +2556,9 @@ public:
       If the vector demension does not match the true dimension of the \c
       FiniteElementSpace , the resulting element matrix will be mathematically
       invalid. */
-   VectorDiffusionIntegrator(int vector_dimension) : vdim{vector_dimension} {}
+   VectorDiffusionIntegrator(int vector_dimension) : vdim(vector_dimension) {}
 
-   VectorDiffusionIntegrator(Coefficient &q) : Q{&q} {}
+   VectorDiffusionIntegrator(Coefficient &q) : Q(&q) {}
 
    /** \brief Integrator with scalar coefficient for caller-specified vector dimension.
 
@@ -2568,7 +2568,8 @@ public:
       If the vector demension does not match the true dimension of the \c
       FiniteElementSpace , the resulting element matrix will be mathematically
       invalid. */
-   VectorDiffusionIntegrator(Coefficient &q, int vector_dimension) : Q{&q}, vdim{vector_dimension} {}
+   VectorDiffusionIntegrator(Coefficient &q, int vector_dimension) : Q(&q),
+      vdim(vector_dimension) {}
 
    /** \brief Integrator with \c VectorCoefficient. The vector dimension of the \c FiniteElementSpace is assumed to be the same as the dimension of the \c Vector.
 
@@ -2577,7 +2578,8 @@ public:
       If the vector demension does not match the true dimension of the \c
       FiniteElementSpace , the resulting element matrix will be mathematically
       invalid. */
-   VectorDiffusionIntegrator(VectorCoefficient& vq) : VQ{&vq}, vdim{vq.GetVDim()} {}
+   VectorDiffusionIntegrator(VectorCoefficient& vq) : VQ(&vq),
+      vdim(vq.GetVDim()) {}
 
    /** \brief Integrator with \c MatrixCoefficient. The vector dimension of the \c FiniteElementSpace is assumed to be the same as the dimension of the \c Vector.
 
@@ -2587,7 +2589,8 @@ public:
       If the vector demension does not match the true dimension of the \c
       FiniteElementSpace , the resulting element matrix will be mathematically
       invalid. */
-   VectorDiffusionIntegrator(MatrixCoefficient& mq) : MQ{&mq}, vdim{mq.GetVDim()} {}
+   VectorDiffusionIntegrator(MatrixCoefficient& mq) : MQ(&mq),
+      vdim(mq.GetVDim()) {}
 
    virtual void AssembleElementMatrix(const FiniteElement &el,
                                       ElementTransformation &Trans,

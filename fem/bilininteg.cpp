@@ -2281,7 +2281,8 @@ void VectorDiffusionIntegrator::AssembleElementVector(
    }
 
    dshape.SetSize(dof, dim);
-   pelmat.SetSize(dim);
+   dshapedxt.SetSize(dof, dim);
+   // pelmat.SetSize(dim);
 
    elvect.SetSize(dim*dof);
    // NOTE: DenseMatrix is in column-major order.
@@ -2309,13 +2310,15 @@ void VectorDiffusionIntegrator::AssembleElementVector(
       Tr.SetIntPoint(&ip);
       double w = Tr.Weight();
       w = ip.weight / (square ? w : w*w*w);
+      Mult(dshape, Tr.AdjugateJacobian(), dshapedxt);
+      MultAAt(dshapedxt, pelmat);
 
       if (VQ)
       {
          VQ->Eval(vcoeff, Tr, ip);
          for (int k = 0; k < vdim; ++k)
          {
-            Mult_a_AAt(w*vcoeff(k), dshapedxt, pelmat);
+            pelmat *= w*vcoeff(k);
             const Vector vec_in(mat_in.GetColumn(k), dof);
             Vector vec_out(mat_out.GetColumn(k), dof);
             pelmat.AddMult(vec_in, vec_out);
@@ -2329,7 +2332,7 @@ void VectorDiffusionIntegrator::AssembleElementVector(
             Vector vec_out(mat_out.GetColumn(i), dof);
             for (int j = 0; j < vdim; ++j)
             {
-               Mult_a_AAt(w*mcoeff(i,j), dshapedxt, pelmat);
+               pelmat *= w*mcoeff(i,j);
                const Vector vec_in(mat_in.GetColumn(j), dof);
                pelmat.Mult(vec_in, vec_out);
             }
@@ -2338,7 +2341,7 @@ void VectorDiffusionIntegrator::AssembleElementVector(
       else
       {
          if (Q) { w *= Q->Eval(Tr, ip); }
-         Mult_a_AAt(w, dshapedxt, pelmat);
+         pelmat *= w;
          for (int k = 0; k < vdim; ++k)
          {
             const Vector vec_in(mat_in.GetColumn(k), dof);
