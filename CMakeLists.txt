@@ -10,6 +10,11 @@
 # CONTRIBUTING.md for details.
 
 cmake_minimum_required(VERSION 2.8.11)
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+set(BUILD_SHARED_LIBS ON CACHE BOOL "")
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON CACHE BOOL "")
+
 set(USER_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/config/user.cmake" CACHE PATH
   "Path to optional user configuration file.")
 
